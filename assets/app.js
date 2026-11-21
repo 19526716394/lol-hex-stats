@@ -358,14 +358,18 @@
         $('#metaStrip').innerHTML = '<span class="meta-pill">斗魂数据尚未生成，点击“刷新数据”重试</span>';
         return;
       }
-      $('#metaStrip').innerHTML = [
+      const arenaPills = [
         '<span class="meta-pill gold">版本 <b>Patch ' + esc(am.patch) + '</b></span>',
         '<span class="meta-pill">数据日期 <b>' + esc(fmtDate(am.dataDate)) + '</b></span>',
         '<span class="meta-pill">统计窗口 <b>' + esc(am.window || '近 2–3 周') + '</b></span>',
         '<span class="meta-pill">更新于 <b>' + esc(fmtTime(state.data.generatedAt)) + '</b></span>',
         '<span class="meta-pill">样本 <b>' + num(am.sampleMatches) + ' 场</b></span>',
         '<span class="meta-pill">口径 <b>全球服 · 8 人乱斗</b></span>'
-      ].join('');
+      ];
+      if (am.augmentMetrics === 'stale-performance') {
+        arenaPills.push('<span class="meta-pill warn" title="' + esc(am.augmentMetricsNote || '') + '">海克斯表现 <b>沿用上一版</b></span>');
+      }
+      $('#metaStrip').innerHTML = arenaPills.join('');
       return;
     }
     const m = state.data.aram && state.data.aram.meta;

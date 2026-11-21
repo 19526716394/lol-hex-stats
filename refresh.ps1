@@ -813,34 +813,61 @@ if (-not $SkipArena) {
     $champs = @($champs | Sort-Object { $_.place })
     for ($i = 0; $i -lt $champs.Count; $i++) { $champs[$i].rank = $i + 1 }
 
-    $augRes = Get-CachedText "https://ggez.gg/zh/tierlist/arena/augments" "ggez-arena-augments.html" 60
-    $ahtml = $augRes.text
+    # ggez 新版海克斯榜改为 SvelteKit __data.json（HTML 仅保留选取次数/占有率）。
+    # 表现指标（前三率/第一名率/平均名次）本期不再提供，按名称沿用上一版缓存并标记。
+    $prevArenaAugByName = @{}
+    $prevArenaMeta = $null
+    $prevSnapshotPath = Join-Path $DataDir "snapshot.json"
+    if (Test-Path $prevSnapshotPath) {
+      try {
+        $prevSnap = Get-Content $prevSnapshotPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($null -ne $prevSnap.arena) {
+          if ($null -ne $prevSnap.arena.meta) { $prevArenaMeta = $prevSnap.arena.meta }
+          foreach ($pa in @($prevSnap.arena.augments)) {
+            if ($pa.name) { $prevArenaAugByName[[string]$pa.name] = $pa }
+          }
+        }
+      } catch { Write-Log "WARN 读取上一版斗魂海克斯失败：$($_.Exception.Message)" }
+    }
+
+    $augDataRes = Get-CachedTextTtl "https://ggez.gg/zh/tierlist/arena/augments/__data.json" "ggez-arena-augments-data.json" 40 6
+    $augData = $augDataRes.text | ConvertFrom-Json
+    $ad = $augData.nodes[1].data
+    $rowStarts = @($ad[$ad[1].rows])
+    $sampleMatches = 0
+    $samplePicks = 0
+    if ($null -ne $ad[4]) { $sampleMatches = [int64]$ad[4] }
+    if ($null -ne $ad[3]) { $samplePicks = [int64]$ad[3] }
     $augs = @()
-    $arows = [regex]::Matches($ahtml, '<tr><td class="c-name[\s\S]*?</tr>')
-    foreach ($m in $arows) {
-      $r = $m.Value
-      $name = HtmlText ([regex]::Match($r, '<b[^>]*>([^<]+)</b>').Groups[1].Value)
-      $rarity = HtmlText ([regex]::Match($r, 'class="rar [^"]*">([^<]+)</span>').Groups[1].Value)
-      $augIcon = [regex]::Match($r, '<img[^>]+src="([^"]+)"').Groups[1].Value
-      $nums = [regex]::Matches($r, '<td class="c-n[^"]*[^>]*>([^<]+)</td>')
-      if (-not $name -or $nums.Count -lt 5) { continue }
-      $picks = [int64](ToNum $nums[0].Groups[1].Value)
-      $share = ToNum $nums[1].Groups[1].Value
-      $top3 = ToNum $nums[2].Groups[1].Value
-      $first = ToNum $nums[3].Groups[1].Value
-      $place = ToNum $nums[4].Groups[1].Value
-      if ($place -le 0) { continue }
+    foreach ($rowStart in $rowStarts) {
+      $o = $ad[[int]$rowStart]
+      if ($null -eq $o) { continue }
+      $name = [string]$ad[[int]$o.name]
+      $rarity = [string]$ad[[int]$o.rarity]
+      $augIcon = [string]$ad[[int]$o.icon]
+      $picks = [int64]$ad[[int]$o.games]
+      $share = [double]$ad[[int]$o.pickShare]
+      if (-not $name -or $picks -le 0) { continue }
+      $top3 = 0; $first = 0; $place = 0; $metricsStale = $false
+      $oldA = $prevArenaAugByName[$name]
+      if ($null -ne $oldA) {
+        $top3 = [double]$oldA.top3
+        $first = [double]$oldA.first
+        $place = [double]$oldA.place
+        $metricsStale = $true
+      }
       $augs += [ordered]@{
         name = $name; rarity = $rarity; picks = $picks
         share = R2 $share; top3 = R2 $top3; first = R2 $first
-        place = R2 $place; icon = $augIcon
+        place = R2 $place; icon = $augIcon; metricsStale = $metricsStale
       }
     }
-    $augs = @($augs | Sort-Object { $_.place })
+    $augs = @($augs | Sort-Object @{ Expression = { if ($_.place -gt 0) { $_.place } else { 999 } }; Ascending = $true }, @{ Expression = { $_.picks }; Descending = $true })
     for ($i = 0; $i -lt $augs.Count; $i++) {
       $augs[$i].rank = $i + 1
       $augs[$i].tier = Get-Tier ($i + 1) $augs.Count
     }
+    $staleAugCount = @($augs | Where-Object { $_.metricsStale }).Count
     $ArenaAugMap = @{}
     foreach ($a in $augs) { $ArenaAugMap[[string]$a.name] = [string]$a.rarity }
 
@@ -980,14 +1007,14 @@ if (-not $SkipArena) {
     elseif ($common -ge 14) { $lumStatus = "agree" }
     elseif ($common -ge 9) { $lumStatus = "close" }
 
-    $subM = [regex]::Match($html, '<p class="tl-sub num[^"]*">([\s\S]*?)</p>')
-    $subText = HtmlText $subM.Groups[1].Value
-    $nums = [regex]::Matches($subText, '([\d,]{4,})')
-    $sampleMatches = 0
-    $samplePicks = 0
-    if ($nums.Count -ge 2) {
-      $sampleMatches = [int64](ToNum $nums[0].Groups[1].Value)
-      $samplePicks = [int64](ToNum $nums[1].Groups[1].Value)
+    if ($sampleMatches -le 0 -or $samplePicks -le 0) {
+      $subM = [regex]::Match($html, '<p class="tl-sub num[^"]*">([\s\S]*?)</p>')
+      $subText = HtmlText $subM.Groups[1].Value
+      $nums = [regex]::Matches($subText, '([\d,]{4,})')
+      if ($nums.Count -ge 2) {
+        $sampleMatches = [int64](ToNum $nums[0].Groups[1].Value)
+        $samplePicks = [int64](ToNum $nums[1].Groups[1].Value)
+      }
     }
 
     # 斗魂海克斯效果（CommunityDragon，中文）
@@ -1124,6 +1151,8 @@ if (-not $SkipArena) {
       crossTopOverlap = $common
       crossNote = "lum.gg 仅提供强度排序、无胜率，用于前 20 排序一致性校验；数值以 ggez 为准。"
       license = "数据归 ggez.gg / Riot Games，个人非商用"
+      augmentMetrics = $(if ($staleAugCount -gt 0) { "stale-performance" } else { "current" })
+      augmentMetricsNote = $(if ($staleAugCount -gt 0) { "ggez 本期海克斯榜仅公布选取次数/占有率；前三率、第一名率与平均名次按名称沿用上一版缓存（$staleAugCount 个），待源站恢复后自动更新。" } else { "" })
     }
     $ArenaObj = [ordered]@{
       meta = $ArenaMeta
@@ -1164,7 +1193,9 @@ if ($AramCross.meta.ContainsKey("hexdata") -and $AramCross.meta["hexdata"].rows 
 }
 if ($null -ne $ArenaMeta) {
   $arenaSample = "{0:N0} 场 / {1:N0} 人次" -f $ArenaMeta.sampleMatches, $ArenaMeta.samplePicks
-  $Sources += [ordered]@{ id = "ggez"; name = "ggez.gg"; url = "https://ggez.gg/zh/tierlist/arena"; patch = $ArenaMeta.patch; date = $ArenaMeta.dataDate; sample = $arenaSample; role = "主源（斗魂）"; status = "ok"; note = "Riot API 对局，近 2-3 周滚动样本" }
+  $ggezNote = "Riot API 对局，近 2-3 周滚动样本"
+  if ($ArenaMeta.augmentMetrics -eq "stale-performance") { $ggezNote = $ggezNote + "；海克斯表现指标沿用上一版（源站本期仅公布选取次数/占有率）" }
+  $Sources += [ordered]@{ id = "ggez"; name = "ggez.gg"; url = "https://ggez.gg/zh/tierlist/arena"; patch = $ArenaMeta.patch; date = $ArenaMeta.dataDate; sample = $arenaSample; role = "主源（斗魂）"; status = "ok"; note = $ggezNote }
   $lumRole = "交叉校验（斗魂·排序）"
   $lumNote = "仅核对前 20 强度排序，重叠 $($ArenaMeta.crossTopOverlap)/20；无胜率，不参与数值计算"
   $Sources += [ordered]@{ id = "lum"; name = "lum.gg"; url = "https://lum.gg/zh-cn/lol/arena"; patch = $ArenaMeta.patch; date = $ArenaMeta.dataDate; sample = "6,382,278 人次"; role = $lumRole; status = "ok"; note = $lumNote }
