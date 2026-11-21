@@ -1,16 +1,35 @@
 # HEXSTATS · 英雄联盟 海斗与斗魂数据榜
 
-英雄联盟**海克斯大乱斗**（ARAM Mayhem）与**斗魂竞技场**（Arena）的英雄胜率、海克斯胜率、平均名次与推荐出装榜单。数据本地缓存、多源交叉校验、页面自动刷新。
+英雄联盟**海克斯大乱斗**（ARAM Mayhem）与**斗魂竞技场**（Arena）的英雄胜率、海克斯胜率、平均名次与推荐出装榜单。云端自动刷新、多源交叉校验，另有桌面助手可常驻查询。
 
-## 快速开始
+## 在线访问
+
+直接打开：
+
+```text
+https://19526716394.github.io/lol-hex-stats/
+```
+
+数据由 GitHub Actions 每 30 分钟自动抓取、校验并部署，不需要电脑常开，也不需要本地服务。失败时保留上一版快照。
+
+仓库与运行记录：
+
+- 代码与数据：https://github.com/19526716394/lol-hex-stats
+- Actions：https://github.com/19526716394/lol-hex-stats/actions
+
+桌面助手（可选，托盘常驻、悬浮查询）：
+
+```text
+E:\软件\LoLHexAssistant\启动助手.bat
+```
+
+## 本地运行（可选）
 
 1. 双击 **`启动.bat`**。
 2. 浏览器会自动打开 `http://127.0.0.1:8765/`。
 3. 关闭标题为 **HEXSTATS 服务** 的 PowerShell 窗口即可停止。
 
-首次打开如果还没有数据，双击 **`刷新数据.bat`** 拉取一次；之后服务默认每 30 分钟自动刷新（海斗 + 斗魂），页面每 10 秒检查一次状态，有新数据会自动更新。
-
-页面右上角的 **刷新数据** 按钮可以立即触发一次刷新（需要由本地服务打开页面）。
+首次打开如果还没有数据，双击 **`刷新数据.bat`** 拉取一次；之后服务默认每 30 分钟自动刷新（海斗 + 斗魂）。本地页面的 **刷新数据** 按钮可立即触发刷新；云端静态页面不显示该按钮。
 
 ## 页面使用
 
@@ -22,7 +41,7 @@
 
 | 来源 | 角色 | 说明 |
 |---|---|---|
-| [AramHex 数据仓库](https://github.com/czgreat/aramhex-data) | 海斗主源 | 国服 7 大区逐局自采，CC BY-NC 4.0，当前 Patch 16.22，约 3,729 万场有效对局 |
+| [AramHex 数据仓库](https://github.com/czgreat/aramhex-data) | 海斗主源 | 国服 7 大区逐局自采，CC BY-NC 4.0，随上游版本自动更新（当前 Patch 16.23，约 879 万场有效对局） |
 | [ARAMKit](https://aramkit.cn/zh-CN/champions) | 海斗交叉校验 | 当前版本独立样本，用于核对英雄/海克斯胜率，不混算；其[趣味榜单](https://aramkit.cn/zh-CN/fun-stats)另提供真实双海克斯组合样本（单源） |
 | [Hexdata](https://hexdata.com.cn/heroes) | 海斗交叉校验 | 另一个独立样本，仅核对方向与偏差 |
 | [ggez.gg](https://ggez.gg/zh/tierlist/arena) | 斗魂主源 | Riot Games API 对局，近 2–3 周滚动样本，含英雄/海克斯榜与推荐出装 |
@@ -71,7 +90,8 @@ lol-hex-stats/
 ├─ logs/               refresh.log / serve.log
 ├─ refresh.ps1         抓取、聚合、交叉校验、写出快照（海斗 + 斗魂）
 ├─ serve.ps1           本地 HTTP 服务（127.0.0.1:8765）与自动刷新
-├─ 启动.bat            启动服务并打开页面
+├─ .github/workflows/  GitHub Actions：定时刷新 + Pages 部署
+├─ 启动.bat            本地启动服务并打开页面
 └─ 刷新数据.bat        手动刷新一次数据
 ```
 
