@@ -1140,7 +1140,11 @@ if (-not $SkipArena) {
     if (Test-Path $cp) {
       try {
         $old = Get-Content $cp -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($null -ne $old.arena) { $ArenaObj = $old.arena }
+        if ($null -ne $old.arena) {
+          $ArenaObj = $old.arena
+          if ($null -ne $old.arena.meta) { $ArenaMeta = $old.arena.meta }
+          Write-Log "WARN 沿用上一版斗魂数据：$($ArenaMeta.championCount) 英雄 / $($ArenaMeta.augmentCount) 海克斯 / $($ArenaMeta.buildCoverage) 套出装"
+        }
       } catch { }
     }
   }
