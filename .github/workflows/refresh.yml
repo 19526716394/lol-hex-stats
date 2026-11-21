@@ -30,11 +30,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/snapshot.json data/snapshot.js
-          git diff --cached --quiet
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "No data changes."
+
+          # generatedAt 每轮都会变化，不把它当作数据变化，避免每 30 分钟产生一个 1 MB 提交。
+          $old = (git show HEAD:data/snapshot.json) -replace '"generatedAt":"[^"]*"',''
+          $new = (Get-Content data/snapshot.json -Raw) -replace '"generatedAt":"[^"]*"',''
+
+          if ($old -eq $new) {
+            Write-Host "No substantive data changes."
+            git checkout -- data/snapshot.json
             exit 0
           }
+
+          git add data/snapshot.json
           git commit -m "chore: refresh LoL data $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
           git push

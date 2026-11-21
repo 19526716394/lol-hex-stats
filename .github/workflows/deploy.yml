@@ -39,7 +39,7 @@ jobs:
           mkdir -p _site/data
           cp index.html _site/
           cp -r assets _site/assets
-          cp data/snapshot.json data/snapshot.js _site/data/
+          cp data/snapshot.json _site/data/
           du -sh _site
 
       - name: Upload Pages artifact
