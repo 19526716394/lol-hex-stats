@@ -1,0 +1,9 @@
+cache/
+logs/
+_research/
+screens/
+_archive/
+data/status.json
+data/*.tmp
+*.user
+*.suo

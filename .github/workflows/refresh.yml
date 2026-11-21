@@ -1,0 +1,40 @@
+name: Refresh LoL data
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-lol-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Refresh snapshot
+        shell: powershell
+        run: .\refresh.ps1 -ArenaTop 30
+
+      - name: Commit refreshed snapshot
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/snapshot.json data/snapshot.js
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "No data changes."
+            exit 0
+          }
+          git commit -m "chore: refresh LoL data $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+          git push

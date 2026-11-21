@@ -1,0 +1,293 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>海克斯大乱斗 · 双模式数据榜</title>
+<meta name="description" content="英雄联盟海克斯大乱斗与斗魂竞技场的英雄、海克斯胜率榜与高胜率出装，多源交叉校验，本地自动刷新。">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/style.css?v=20261116a">
+</head>
+<body>
+<div class="bg-glow bg-glow-a"></div>
+<div class="bg-glow bg-glow-b"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">HEX<span>STATS</span></div>
+    <div class="brand-sub">英雄联盟 · 海克斯大乱斗 &amp; 斗魂竞技场</div>
+  </div>
+  <div class="top-actions">
+    <div class="live" id="liveBadge">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">正在载入数据</span>
+    </div>
+    <button class="btn btn-primary" id="refreshBtn" type="button" disabled>
+      <span class="btn-ico">⟳</span> 刷新数据
+    </button>
+  </div>
+</header>
+
+<nav class="mode-tabs" aria-label="模式选择">
+  <button class="mode-tab active" data-mode="aram" type="button">
+    海克斯大乱斗 <span class="mode-badge live-badge">实时</span>
+  </button>
+  <button class="mode-tab" data-mode="arena" type="button">
+    斗魂竞技场 <span class="mode-badge live-badge">实时</span>
+  </button>
+</nav>
+
+<main class="wrap">
+  <section id="aramView">
+    <div class="quick-find">
+      <div class="search-box quick-search">
+        <span class="search-ico">⌕</span>
+        <input id="searchInput" type="search" placeholder="搜索英雄或海克斯：盲僧 / LeeSin / 瑞天帝 / 卡牌…" autocomplete="off" aria-label="搜索海斗数据">
+      </div>
+      <div class="quick-hint">支持英雄名、称号、英文 ID、拼音与常用外号；输入有少量拼写误差也能匹配。</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">胜率榜单</h2>
+          <p class="panel-sub" id="boardSub">按全体玩家对局统计，点击任意一行查看高胜率出装与搭配。</p>
+        </div>
+        <div class="seg" role="tablist" aria-label="榜单类型" id="aramSeg">
+          <button class="seg-btn active" data-board="heroes" type="button">英雄榜</button>
+          <button class="seg-btn" data-board="augments" type="button">海克斯榜</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters" id="rarityFilters" hidden>
+          <button class="chip active" data-rarity="all" type="button">全部</button>
+          <button class="chip rarity-prismatic" data-rarity="prismatic" type="button">棱彩</button>
+          <button class="chip rarity-gold" data-rarity="gold" type="button">黄金</button>
+          <button class="chip rarity-silver" data-rarity="silver" type="button">白银</button>
+        </div>
+        <label class="sort-wrap">
+          <span>排序</span>
+          <select id="sortSelect" aria-label="排序方式"></select>
+        </label>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table" id="heroTable">
+          <thead>
+            <tr>
+              <th class="col-rank">#</th>
+              <th>英雄</th>
+              <th class="col-tier">梯队</th>
+              <th class="num">胜率</th>
+              <th class="num col-pick">选取率</th>
+              <th class="num col-games">场次</th>
+              <th class="col-conf">信心</th>
+              <th class="col-cross">多源校验</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <table class="data-table" id="augTable" hidden>
+          <thead>
+            <tr>
+              <th class="col-rank">#</th>
+              <th>海克斯</th>
+              <th class="col-rarity">稀有度</th>
+              <th class="num">胜率</th>
+              <th class="num">相对提升</th>
+              <th class="num col-pick">选取率</th>
+              <th class="num col-games">场次</th>
+              <th class="col-conf">信心</th>
+              <th class="col-cross">多源校验</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="table-foot" id="tableFoot"></div>
+    </div>
+
+    <div class="panel combo-panel" id="comboPanel" hidden>
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">海克斯搭配组合</h2>
+          <p class="panel-sub">两个海克斯同时出现的真实联合样本，不是把单卡胜率相加。点击任意海克斯查看详情。</p>
+        </div>
+        <span class="combo-source" id="comboSource">ARAMKit · 单源</span>
+      </div>
+      <div class="combo-grid" id="comboGrid"></div>
+      <div class="table-foot combo-foot" id="comboFoot"></div>
+    </div>
+
+    <div class="explain-grid">
+      <div class="explain-card">
+        <h3>“相对提升”怎么算</h3>
+        <p>海克斯原始胜率会被英雄本身强度带偏。相对提升 = 该海克斯使用者的胜率 − 同一批英雄的平均胜率，再按出场量加权。它回答的是“拿到这个海克斯，比拿不到时强多少”。</p>
+      </div>
+      <div class="explain-card">
+        <h3>为什么值得信</h3>
+        <p>主数据来自国服 7 大区逐局自采，覆盖 3,700 万场有效对局；英雄与海克斯胜率再与 ARAMKit、Hexdata 两个独立样本逐项比对，偏差超过阈值的条目标为低信心。</p>
+      </div>
+      <div class="explain-card">
+        <h3>怎么用</h3>
+        <p>英雄榜看版本强势与选取率；海克斯榜优先看“相对提升”，再结合选取率判断稳定性。点开详情可查看该英雄的高胜率成装、最佳海克斯以及海克斯 × 出装组合。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="arenaView" hidden>
+    <div class="quick-find">
+      <div class="search-box quick-search">
+        <span class="search-ico">⌕</span>
+        <input id="arenaSearchInput" type="search" placeholder="搜索英雄或海克斯：盲僧 / LeeSin / 瑞天帝 / 卡牌…" autocomplete="off" aria-label="搜索斗魂数据">
+      </div>
+      <div class="quick-hint">支持英雄名、称号、英文 ID、拼音与常用外号；输入有少量拼写误差也能匹配。</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">斗魂竞技场榜单</h2>
+          <p class="panel-sub" id="arenaBoardSub">按平均名次排序，点击任意一行查看推荐强化与成装。</p>
+        </div>
+        <div class="seg" role="tablist" aria-label="斗魂榜单类型" id="arenaSeg">
+          <button class="seg-btn active" data-arena-board="champions" type="button">英雄榜</button>
+          <button class="seg-btn" data-arena-board="augments" type="button">海克斯榜</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters" id="arenaRarityFilters" hidden>
+          <button class="chip active" data-arena-rarity="all" type="button">全部</button>
+          <button class="chip rarity-prismatic" data-arena-rarity="棱彩" type="button">棱彩</button>
+          <button class="chip rarity-gold" data-arena-rarity="黄金" type="button">黄金</button>
+          <button class="chip rarity-silver" data-arena-rarity="白银" type="button">白银</button>
+        </div>
+        <label class="sort-wrap">
+          <span>排序</span>
+          <select id="arenaSortSelect" aria-label="斗魂排序方式"></select>
+        </label>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table arena-table" id="arenaChampionTable">
+          <thead>
+            <tr>
+              <th class="col-rank">#</th>
+              <th>英雄</th>
+              <th class="col-tier">梯队</th>
+              <th class="num">前二率</th>
+              <th class="num">平均名次</th>
+              <th class="num col-first">第一名率</th>
+              <th class="num col-pick">选取率</th>
+              <th class="num col-games">场次</th>
+              <th class="col-conf">信心</th>
+              <th class="col-cross">排序校验</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <table class="data-table arena-table" id="arenaAugmentTable" hidden>
+          <thead>
+            <tr>
+              <th class="col-rank">#</th>
+              <th>海克斯</th>
+              <th class="col-rarity">稀有度</th>
+              <th class="num">前三率</th>
+              <th class="num">平均名次</th>
+              <th class="num col-first">第一名率</th>
+              <th class="num col-pick">选取率</th>
+              <th class="num col-games">选取场次</th>
+              <th class="col-conf">信心</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="table-foot" id="arenaTableFoot"></div>
+    </div>
+
+    <div class="explain-grid">
+      <div class="explain-card">
+        <h3>斗魂怎么读</h3>
+        <p>斗魂是 8 人乱斗，前二名视为“胜”。榜单默认按平均名次排序（越低越好），并给出前二率、第一名率与选取率。平均名次比单看胜率更稳定。</p>
+      </div>
+      <div class="explain-card">
+        <h3>数据来源与校验</h3>
+        <p>主源为 ggez.gg 基于 Riot Games API 的近 2–3 周对局。lum.gg 只提供强度排序、没有胜率，因此仅用于核对前 20 名单方向，不混合样本计算；两站排序口径不同，分歧会明确标注。</p>
+      </div>
+      <div class="explain-card">
+        <h3>推荐出装覆盖</h3>
+        <p>详情页展示该英雄的推荐强化与成装，来自 ggez 的对局统计（前三率 / 选取率）。当前覆盖胜率榜前 30 名英雄，其余英雄暂不提供出装，避免用低样本硬凑。</p>
+      </div>
+    </div>
+  </section>
+
+  <details class="meta-fold" id="metaFold">
+    <summary>数据版本、样本量与口径（次要）</summary>
+    <section class="meta-strip" id="metaStrip" aria-label="数据版本信息"></section>
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="stat-grid" id="arenaStatGrid"></div>
+  </details>
+
+  <section class="audit panel" id="auditPanel">
+    <div class="panel-head">
+      <div>
+        <h2 class="panel-title">数据源与校验</h2>
+        <p class="panel-sub">只采信当前版本、有明确样本量与统计口径的来源；过期站点整站排除。</p>
+      </div>
+      <span class="license" id="licenseTag">CC BY-NC 4.0</span>
+    </div>
+    <div class="audit-grid">
+      <div>
+        <h3 class="audit-h">采用的数据源</h3>
+        <div class="source-list" id="sourceList"></div>
+      </div>
+      <div>
+        <h3 class="audit-h">已排除 / 降权的来源</h3>
+        <div class="excluded-list" id="excludedList"></div>
+      </div>
+    </div>
+    <div class="audit-foot">
+      <div>
+        <h3 class="audit-h">信心等级</h3>
+        <div class="confidence-legend" id="confidenceLegend"></div>
+      </div>
+      <div>
+        <h3 class="audit-h">统计口径</h3>
+        <p class="audit-p">海斗为全体玩家（normal 全量）样本，窗口约一周；斗魂为近 2–3 周全球服样本。跨源比对只用于校验方向与偏差，不混合样本计算。所有榜单为个人/团队非商用研究用途。</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div id="footerSources">数据主源：<a href="https://github.com/czgreat/aramhex-data" target="_blank" rel="noopener">AramHex</a>（CC BY-NC 4.0） · 交叉校验：ARAMKit、Hexdata</div>
+  <div id="footerMeta">本地服务 · 自动刷新</div>
+</footer>
+
+<div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-label="详情">
+  <button class="drawer-close" id="drawerClose" type="button" aria-label="关闭">×</button>
+  <div id="drawerBody"></div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+
+<script src="data/snapshot.js"></script>
+<script src="assets/app.js?v=20261116b"></script>
+</body>
+</html>
+
+
+
+
+
+
+
